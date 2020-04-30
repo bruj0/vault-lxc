@@ -1,0 +1,7 @@
+---
+consul_version: "1.6.1"
+consul_checksum: "sha256:a8568ca7b6797030b2c32615b4786d4cc75ce7aee2ed9025996fe92b07b31f7e"
+consul_install_prerequisites: ['unzip']
+consul_user: "consul"
+consul_group: "consul"
+consul_config_path: "/etc/consul.d"

@@ -1,0 +1,15 @@
+{
+  "server": true,
+  "node_name": "{{ HOSTNAME  }} ",
+  "datacenter": "dc1",
+  "data_dir": "/mnt/data",
+  "bind_addr": "0.0.0.0",
+  "client_addr": "0.0.0.0",
+  "advertise_addr": "{{ CLUSTER_IP }}",
+  "bootstrap_expect": 3,
+  "retry_join": {{ JOIN_RETRY | to_json }},
+  "ui": true,
+  "log_level": "DEBUG",
+  "enable_syslog": true,
+  "acl_enforce_version_8": false
+}

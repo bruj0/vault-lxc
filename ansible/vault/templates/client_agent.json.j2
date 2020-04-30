@@ -1,0 +1,12 @@
+{
+  "server": false,
+  "datacenter": "{{ CLUSTER }}",
+  "node_name": "{{ HOSTNAME }}",
+  "data_dir": "/var/run/consul/data",
+  "bind_addr": "{{ CLUSTER_IP }}",
+  "client_addr": "127.0.0.1",
+  "retry_join": {{ JOIN_RETRY | to_json }},
+  "log_level": "DEBUG",
+  "enable_syslog": true,
+  "acl_enforce_version_8": false
+}

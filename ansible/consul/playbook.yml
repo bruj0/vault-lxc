@@ -1,0 +1,11 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars:
+    CLUSTER_IP: "{{ cluster_ip }}"
+    HOSTNAME: "{{ hostname }}"
+    JOIN_RETRY: "{{ join_retry }}"
+  roles:
+    - consul

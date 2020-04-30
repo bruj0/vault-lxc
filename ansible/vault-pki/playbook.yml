@@ -1,0 +1,18 @@
+---
+- hosts: all
+  become: yes
+  become_user: root
+  become_method: sudo
+  gather_facts: True
+  vars:
+    CLUSTER_IP: "{{ cluster_ip }}"
+    HOSTNAME: "{{ hostname }}"
+    JOIN_RETRY: "{{ join_retry }}"
+    unseal_keys_dir_output: "{{ playbook_dir }}/unsealKey"
+    root_token_dir_output: "{{ playbook_dir }}/rootKey"
+
+  roles:
+    - vault
+    - vault-init
+    - vault-unseal
+  

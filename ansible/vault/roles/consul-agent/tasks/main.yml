@@ -1,0 +1,63 @@
+- name: Creating consul user group
+  group: 
+    name: "{{ consul_group }}"
+  become: true
+
+- name: Creating consul user
+  user:
+    name: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    system: yes
+    shell: "/sbin/nologin"
+    comment: "consul nologin User"
+    createhome: "no"
+    state: present
+
+- name: Install prerequisites
+  package:
+    name: "{{ item }}"
+    update_cache: yes
+  with_items: "{{ consul_install_prerequisites }}"
+  become: yes
+
+- name: Download binary
+  get_url:
+    url: /home/bruj0/backup/enterprise_bins/consul/{{consul_version}}/consul-enterprise_{{consul_version}}+prem_linux_amd64.zip
+    dest: /tmp/consul_{{consul_version}}_linux_amd64.zip
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0755
+  register: consul_download
+
+- name: "Unzip consul archive"
+  unarchive:
+    src: "{{ consul_download.dest }}"
+    dest: /usr/local/bin
+    copy: no
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+    mode: 0755
+
+- name: Copy systemd init file
+  template:
+    src: consul.service.j2
+    dest: /etc/systemd/system/consul.service
+    owner: root
+    group: root
+  notify: systemd_reload
+
+- name: Ensures {{consul_config_path}} dir exists
+  file: path={{consul_config_path}} state=directory
+  
+- name: client config file
+  template:
+    src: client_agent.json.j2
+    dest: "{{ consul_config_path }}/client_agent.json"
+    owner: "{{ consul_user }}"
+    group: "{{ consul_group }}"
+
+- name: consul service
+  service:
+    name: consul
+    state: started
+    enabled: yes

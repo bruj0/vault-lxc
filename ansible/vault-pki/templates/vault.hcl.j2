@@ -1,0 +1,12 @@
+listener "tcp" {
+  address          = "0.0.0.0:8200"
+  cluster_address  = "{{ CLUSTER_IP }}:8201"
+  tls_disable      = "true"
+}
+
+storage "file" {
+  path    = "/mnt/data/vault"
+}
+
+api_addr =  "http://{{ CLUSTER_IP }}"
+cluster_addr = "https://{{ CLUSTER_IP }}"

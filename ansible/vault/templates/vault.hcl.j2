@@ -1,0 +1,35 @@
+storage "raft" {
+  path    = "/vault/raft"
+  node_id = "{{ HOSTNAME }}"
+  retry_join {
+    leader_api_addr = "http://{{ HOSTNAME }}.lxd:8200"
+  }  
+}
+listener "tcp" {
+  address = "{{ HOSTNAME }}.lxd:8200"
+  cluster_address = "{{ HOSTNAME }}.lxd:8201"
+  tls_cert_file = "/etc/vault.d/{{ HOSTNAME }}.pem"
+  tls_key_file = "/etc/vault.d/{{ HOSTNAME }}.key"
+telemetry {
+  prometheus_retention_time = "30s"
+#  disable_hostname          = true
+#  unauthenticated_metrics_access = true
+}  
+}
+seal "transit" {
+  address            = "https://primary-unsealer.lxd:8200"
+  # token is read from VAULT_TOKEN env
+  #token              = "autounseal"
+  disable_renewal    = ""
+  //empty=false
+  // Key configuration
+  key_name           = "autounseal"
+  mount_path         = "transit/"
+  tls_ca_cert        = "/etc/vault.d/ca.pem"
+}
+ui = "true"
+cluster_addr = "https://{{ HOSTNAME }}:8201"
+cluster_name = "{{ CLUSTER }}"
+
+raw_storage_endpoint = true
+log_level = "debug"
