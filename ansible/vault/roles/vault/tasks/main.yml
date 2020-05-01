@@ -45,9 +45,12 @@
 - name: Ensures {{vault_config_path}} dir exists
   file: path={{vault_config_path}} state=directory
 
+- name: Ensures /var/raft dir exists
+  file: path="/var/raft" state=directory
+
 - name: config file
   template:
-    src: vault.hcl.j2
+    src: "{{ vault_template_name }}"
     dest: "{{ vault_config_path }}/vault.hcl"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"

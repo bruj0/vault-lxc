@@ -2,3 +2,14 @@ confs/
 env/
 __pycache__/
 .vscode/
+!.keep
+old/
+ops/raft/primary/
+ops/raft/secondary/
+ops/raft/dr/
+ops/raft/primary/ssl/
+ops/raft/secondary/ssl/
+ops/raft/dr/ssl/
+ops/consul/primary/
+ops/consul/secondary/
+ops/consul/dr/

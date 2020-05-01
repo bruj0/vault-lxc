@@ -3,7 +3,7 @@ storage "raft" {
   node_id = "{{ HOSTNAME }}"
   retry_join {
     leader_api_addr = "http://{{ HOSTNAME }}.lxd:8200"
-  }  
+  }
 }
 listener "tcp" {
   address = "{{ HOSTNAME }}.lxd:8200"

@@ -1,0 +1,147 @@
+---
+test_name: 01-Enable PKI secret engine
+stages:
+  - name: Mount end at pki endpoint
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/sys/mounts/pki"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        type: pki
+    response:
+      status_code: 204
+  - name: 02-Tune PKI secret engine
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/sys/mounts/pki/tune"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        max_lease_ttl: "87600h"
+    response:
+      status_code: 204
+  - name: 03-Generate the CA cert
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/root/generate/internal"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "Vault CA root"
+        ttl: "87600h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/ca.json"
+  - name: 04-Configure the CA and CRL URLs
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/config/urls"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        issuing_certificates: "http://127.0.0.1:8200/v1/pki/ca"
+        crl_distribution_points: "http://127.0.0.1:8200/v1/pki/crl"
+    response:
+      status_code: 204
+  - name: 05-Generate Intermediate CA
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/sys/mounts/pki_int"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        type: "pki"
+    response:
+      status_code: 204
+  - name: 06-Tune PKI secret engine for Intermediate CA
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/sys/mounts/pki_int/tune"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        max_lease_ttl: "87600h"
+    response:
+      status_code: 204
+  - name: 07-Generate the Intermediate CA csr
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki_int/intermediate/generate/internal"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "Vault Intermediate Authority"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/intermediate_ca.json"
+  - name: 08-Sign Intermediate CA
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/root/sign-intermediate"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        $ext:
+          function: extensions.read_json
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/intermediate_ca.json"
+            sub_vars: True
+        csr: "ext.data.csr"
+        format: pem_bundle
+        ttl: 43800h
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/signed_intermediate_ca.json"
+  - name: 09-Import Intermediate CA into pki_int
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki_int/intermediate/set-signed"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        $ext:
+          function: extensions.read_json
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/signed_intermediate_ca.json"
+            sub_vars: True
+        certificate: "ext.data.certificate"
+    response:
+      status_code: 204
+  - name: 10-Create roles
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/roles/dc1-consul"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        allow_domains: "dc1.consul"
+        allow_subdomains: true
+        max_ttl: "720h"
+    response:
+      status_code: 204
+  - name: 10-Create roles
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/roles/primary"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        allow_any_name: true
+        allow_subdomains: true
+        enforce_hostnames: false
+        max_ttl: "720h"
+    response:
+      status_code: 204

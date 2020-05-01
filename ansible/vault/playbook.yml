@@ -10,6 +10,7 @@
     JOIN_RETRY: "{{ join_retry }}"
     CLUSTER: "{{ cluster_name }}"
     BIN_DIR: "/home/bruj0/backup/enterprise_bins"
+    vault_template_name: "{{ 'vault-pki.hcl.j2' if 'pki' in HOSTNAME else 'vault-unsealer.hcl.j2' if 'unsealer' in HOSTNAME else 'vault.hcl.j2' }}"
   roles:
     - consul-agent
     - vault

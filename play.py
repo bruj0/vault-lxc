@@ -44,44 +44,48 @@ def create_cluster(cluster_name="primary"):
     all_list = vault_list + consul_list
     create_base()
     # create the containers
-    port = 0
+    port = -1
     for c in all_list:
         port += 1
-        if not client.containers.exists(cluster_name + "-" + c):
-            container = copy_c("base", cluster_name + "-" + c)
+        c_name = cluster_name + "-" + c
+        devices = {}
+        if not client.containers.exists(c_name):
+            container = copy_c("base", c_name)
+            container.start(wait=True)
+            while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
+                print(".. waiting for container", container.name, "to get ipv4 ..")
+                time.sleep(3)
+            srv_ip = container.state().network["eth0"]["addresses"][0]["address"]
+
             # we port fwd to the first server
-            if container.name in vault_list[0]:
+            if c_name.split("-")[1] in vault_list:
                 devices = {
                     "api_port": {
-                        "connect": "tcp:127.0.0.1:8200",
+                        "connect": f"tcp:{srv_ip}:8200",
                         "listen": "tcp:0.0.0.0:930" + str(port),
                         "type": "proxy",
                     }
                 }
-                container.devices = devices
 
-            if container.name in consul_list[0]:
+            if c_name.split("-")[1] in consul_list:
                 devices = {
                     "api_port": {
-                        "connect": "tcp:127.0.0.1:8500",
+                        "connect": f"tcp:{srv_ip}:8500",
                         "listen": "tcp:0.0.0.0:950" + str(port),
                         "type": "proxy",
                     }
                 }
-                container.devices = devices
-
+            print(f"Using devices:{devices}")
+            container.devices = devices
+            container.config["security.privileged"] = "True"
             container.save(wait=True)
+            container.stop(wait=True)
             container.start(wait=True)
-
-    # create the variables for ansible
-    for c in all_list:
-        start_c(cluster_name + "-" + c)
-        container = client.containers.get(cluster_name + "-" + c)
-        environment = {"IFACE": "eth0", "GITHUB_USER": "bruj0"}
-        while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
-            print(".. waiting for container", container.name, "to get ipv4 ..")
-            time.sleep(3)
-        srv_ip = container.state().network["eth0"]["addresses"][0]["address"]
+        else:
+            # Container already exists
+            container = client.containers.get(c_name)
+            srv_ip = container.state().network["eth0"]["addresses"][0]["address"]
+        # environment = {"IFACE": "eth0", }
 
         # put cluster_ip and hostname in a dictionary for each container
         confs[container.name] = {
@@ -125,19 +129,10 @@ def create_cluster(cluster_name="primary"):
         "-l vault",
         "ansible/vault/playbook.yml",
     ]
-    print(f"Calling ansible-playbook with: {args}")
+    print(f"Calling ansible-playbook with: {' '.join(args)}")
     run(
         args=args, env={"ANSIBLE_HOST_KEY_CHECKING": "False"},
     )
-    ## Run playbook
-
-    #     if container.name in client_list:
-    #         commands = client_cmd
-    #         environment = {"IFACE": "eth0", "LAN_JOIN": srv_ip}
-
-    #     # we are sure network is working, so lets continue
-    #     for command in commands:
-    #         execute_c(container, command, environment)
 
 
 ####

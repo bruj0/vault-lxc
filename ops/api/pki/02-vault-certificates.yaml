@@ -1,0 +1,68 @@
+---
+test_name: 01-Create vault server certificate
+stages:
+  - name: 02-Create vault01 server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-vault01"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary_vault01_1.json"
+  - name: 03-Create vault02 server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-vault02"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary_vault02_1.json"
+  - name: 04-Create vault03 server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-vault03"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary_vault03_1.json"
+  - name: 05-Create unsealer server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-unsealer"
+        ip_sans: "127.0.0.1"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary_vault_unsealer_1.json"

@@ -2,9 +2,9 @@ storage "file" {
   path    = "/vault/raft"
 }
 listener "tcp" {
-  address = "primary-unsealer:8200"
-  tls_cert_file = "/vault/config/ssl/vault_unsealer.pem"
-  tls_key_file = "/vault/config/ssl/vault_unsealer.key"
+  address = "{{ HOSTNAME }}:8200"
+  tls_cert_file = "/vault/config/ssl/{{ HOSTNAME }}.pem"
+  tls_key_file = "/vault/config/ssl/{{ HOSTNAME }}.key"
 }
 ui = "true"
 telemetry {
