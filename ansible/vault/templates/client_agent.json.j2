@@ -4,7 +4,7 @@
   "node_name": "{{ HOSTNAME }}",
   "data_dir": "/var/run/consul/data",
   "bind_addr": "{{ CLUSTER_IP }}",
-  "client_addr": "127.0.0.1",
+  "client_addr": "{{ CLUSTER_IP }}",
   "retry_join": {{ JOIN_RETRY | to_json }},
   "log_level": "DEBUG",
   "enable_syslog": true,

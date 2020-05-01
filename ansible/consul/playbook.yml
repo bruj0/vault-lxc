@@ -7,5 +7,7 @@
     CLUSTER_IP: "{{ cluster_ip }}"
     HOSTNAME: "{{ hostname }}"
     JOIN_RETRY: "{{ join_retry }}"
+    CLUSTER: "{{ cluster_name }}"
+    BIN_DIR: "/home/bruj0/backup/enterprise_bins"
   roles:
     - consul

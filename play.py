@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-from subprocess import call
+import yaml
+from pathlib import Path
+from subprocess import run
 from pylxd import Client
 import time
 import warnings
@@ -12,6 +14,17 @@ warnings.filterwarnings("ignore")
 client = Client()  # we focus on local LXD socket
 confs = {}
 join_retry = []
+
+provision_cmds = [
+    # "bash /tmp/pubkeys.sh".split(),
+]
+
+base_cmd = [
+    "apt-get update".split(),
+    "apt-get upgrade -y".split(),
+    "apt-get install -y jq mc joe".split(),
+    "apt autoremove -y".split(),
+]
 
 
 def main():
@@ -64,39 +77,57 @@ def create_cluster(cluster_name="primary"):
     for c in all_list:
         start_c(cluster_name + "-" + c)
         container = client.containers.get(cluster_name + "-" + c)
-        environment = {"IFACE": "eth0"}
+        environment = {"IFACE": "eth0", "GITHUB_USER": "bruj0"}
         while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
             print(".. waiting for container", container.name, "to get ipv4 ..")
-            time.sleep(2)
+            time.sleep(3)
         srv_ip = container.state().network["eth0"]["addresses"][0]["address"]
+
+        # put cluster_ip and hostname in a dictionary for each container
         confs[container.name] = {
             "cluster_ip": srv_ip,
             "hostname": container.name,
         }
+        # create join_retry variable
         if container.name.split("-")[1] in consul_list:
             join_retry.append(srv_ip)
+
+        # Copy public key to connecto to the container
         print(f"Container {container.name} got IP {srv_ip}")
+        print(f"Runing provision:")
+        pub_key = str(Path.home()) + "/.ssh/id_rsa.pub"
+        print(f"\tCopying pub key: {pub_key}")
+        copy_file(
+            pub_key, "/root/.ssh/authorized_keys", container,
+        )
+        # for command in provision_cmds:
+        #    execute_c(container, command, environment)
 
-    # create the join_retry variable for consul agents, it should point to the consul servers IPs
-    for c in confs:
-        confs[c]["join_retry"] = join_retry
+    # Create a yaml inventory for ansible
+    inventory = {
+        "all": {"vars": {"join_retry": join_retry, "cluster_name": cluster_name},},
+        "vault": {"hosts": confs},
+    }
+    print(yaml.dump(inventory))
+    with open(f"ansible/inventory_{cluster_name}.yaml", "w") as file:
+        yaml.dump(inventory, file)
 
-    pprint.pprint(confs)
-    # create the inventory list of vault ips, delimited by commans
-    hosts_vault = []
-    for c in vault_list:
-        hosts_vault.append(confs[cluster_name + "-" + c]["cluster_ip"])
-    hosts_vault = ",".join(hosts_vault)
-
-    call(
-        [
-            "ansible-playbook",
-            "-i",
-            hosts_vault,
-            "ansible/vault/playbook.yml",
-            "-e",
-            json.dumps(confs),
-        ]
+    # Run the ansible playbooks
+    args = [
+        "ansible-playbook",
+        "-i",
+        f"ansible/inventory_{cluster_name}.yaml",
+        "-u",
+        "root",
+        "--flush-cache",
+        "-v",
+        "-v",
+        "-l vault",
+        "ansible/vault/playbook.yml",
+    ]
+    print(f"Calling ansible-playbook with: {args}")
+    run(
+        args=args, env={"ANSIBLE_HOST_KEY_CHECKING": "False"},
     )
     ## Run playbook
 
@@ -131,11 +162,6 @@ def create_c(name):
 
 
 def create_base():
-    base_cmd = [
-        "apt-get update".split(),
-        "apt-get upgrade -y".split(),
-        "apt autoremove -y".split(),
-    ]
     # create base container
     if not client.containers.exists("base"):
         create_c("base")
@@ -145,6 +171,15 @@ def create_base():
         for command in base_cmd:
             execute_c(container, command, environment)
         stop_c("base")
+
+
+def copy_file(src, dst, container):
+    try:
+        filedata = open(src).read()
+        container.files.put(dst, filedata)
+    except Exception as e:
+        print(f"Error: {e}")
+        exit(0)
 
 
 def copy_c(src, dst):
@@ -174,16 +209,12 @@ def stop_c(name):
 
 
 def execute_c(container, command, environment):
-    # wait until there is an ip
-    while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
-        print(".. waiting for container", container.name, "to get ipv4 ..")
-        time.sleep(2)
-    print("command: {}".format(command))
+    print("\tcommand: {}".format(command))
     result = container.execute(command, environment)
-    print("exit_code: {}".format(result.exit_code))
-    print("stdout: {}".format(result.stdout))
+    print("\texit_code: {}".format(result.exit_code))
+    print("\tstdout: {}".format(result.stdout))
     if result.stderr:
-        print("stderr: {}".format(result.stderr))
+        print("\tstderr: {}".format(result.stderr))
 
 
 if __name__ == "__main__":

@@ -24,7 +24,6 @@
   unarchive:
     src: "{{ BIN_DIR }}/vault/{{ vault_version }}/vault-enterprise_{{ vault_version }}+prem_linux_amd64.zip"
     dest: /usr/local/bin
-    copy: no
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
     mode: 0755
@@ -43,15 +42,18 @@
     group: root
   notify: systemd_reload
 
+- name: Ensures {{vault_config_path}} dir exists
+  file: path={{vault_config_path}} state=directory
+
 - name: config file
   template:
     src: vault.hcl.j2
-    dest: "{{ vault_config_path }}"
+    dest: "{{ vault_config_path }}/vault.hcl"
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
 
 - name: vault service
   service:
     name: vault
-    state: stop
+    state: stopped
     enabled: yes
