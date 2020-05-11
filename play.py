@@ -43,6 +43,7 @@ def create_cluster(cluster_name="primary"):
 
     all_list = vault_list + consul_list
     create_base()
+    # exit(0)
     # create the containers
     port = -1
     for c in all_list:
@@ -77,13 +78,10 @@ def create_cluster(cluster_name="primary"):
                 }
             print(f"Using devices:{devices}")
             container.devices = devices
-            container.config["security.privileged"] = "True"
             container.save(wait=True)
-            container.stop(wait=True)
-            container.start(wait=True)
         else:
             # Container already exists
-            container = client.containers.get(c_name)
+            container = start_c(c_name)
             srv_ip = container.state().network["eth0"]["addresses"][0]["address"]
         # environment = {"IFACE": "eth0", }
 
@@ -150,8 +148,9 @@ def create_c(name):
             "protocol": "simplestreams",
             "alias": "focal/amd64",
         },
+        "config": {"security.privileged": "True",},
     }
-    print(f"Config {config}")
+    pprint.pprint(config)
     print("creating container", name)
     return client.containers.create(config, wait=True)
 
@@ -159,13 +158,17 @@ def create_c(name):
 def create_base():
     # create base container
     if not client.containers.exists("base"):
-        create_c("base")
-        start_c("base")
+        container = create_c("base")
+        # container.config = {"security.privileged": "True"}
+        container.start(wait=True)
+        container.save(wait=True)
+        while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
+            print(".. waiting for container", container.name, "to get ipv4 ..")
+            time.sleep(3)
         environment = {"DEBIAN_FRONTEND": "noninteractive"}
-        container = client.containers.get("base")
         for command in base_cmd:
             execute_c(container, command, environment)
-        stop_c("base")
+        # container.stop()
 
 
 def copy_file(src, dst, container):
@@ -194,6 +197,7 @@ def start_c(name):
     if any([l.status == "Stopped", l.status == "Frozen"]):
         l.start(wait=True)
         print("status ", l.status)
+    return l
 
 
 def stop_c(name):
