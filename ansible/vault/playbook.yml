@@ -1,5 +1,5 @@
 ---
-- hosts: all
+- hosts: vault
   become: yes
   become_user: root
   become_method: sudo
@@ -14,4 +14,15 @@
   roles:
     - consul-agent
     - vault
-  
+- hosts: consul
+  become: yes
+  become_user: root
+  become_method: sudo
+  vars:
+    CLUSTER_IP: "{{ cluster_ip }}"
+    HOSTNAME: "{{ hostname }}"
+    JOIN_RETRY: "{{ join_retry }}"
+    CLUSTER: "{{ cluster_name }}"
+    BIN_DIR: "/home/bruj0/backup/enterprise_bins"
+  roles:
+    - consul

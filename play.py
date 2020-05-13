@@ -12,7 +12,8 @@ import json
 warnings.filterwarnings("ignore")
 
 client = Client()  # we focus on local LXD socket
-confs = {}
+confs_vault = {}
+confs_consul = {}
 join_retry = []
 
 provision_cmds = [
@@ -28,10 +29,25 @@ base_cmd = [
 
 
 def main():
-    create_cluster("primary")
+    # create_cluster("primary")
+    create_cluster("dr")
 
 
 def create_cluster(cluster_name="primary"):
+    network = {
+        "primary": {
+            "iface": "lxdbr0",
+            "vault_base_port": 9300,
+            "consul_base_port": 9400,
+        },
+        "dr": {"iface": "lxdbr1", "vault_base_port": 9700, "consul_base_port": 9800,},
+        "secondary": {
+            "iface": "lxdbr2",
+            "vault_base_port": 9500,
+            "consul_base_port": 9600,
+        },
+    }
+
     vault_list = [
         "unsealer",
         "vault01",
@@ -42,12 +58,13 @@ def create_cluster(cluster_name="primary"):
     consul_list = ["consul01", "consul02", "consul03"]
 
     all_list = vault_list + consul_list
-    create_base()
+    create_base(cluster_name, network[cluster_name]["iface"])
     # exit(0)
     # create the containers
-    port = -1
+    vault_port = network[cluster_name]["vault_base_port"]
+    consul_port = network[cluster_name]["consul_base_port"]
     for c in all_list:
-        port += 1
+
         c_name = cluster_name + "-" + c
         devices = {}
         if not client.containers.exists(c_name):
@@ -60,22 +77,27 @@ def create_cluster(cluster_name="primary"):
 
             # we port fwd to the first server
             if c_name.split("-")[1] in vault_list:
+
                 devices = {
                     "api_port": {
                         "connect": f"tcp:{srv_ip}:8200",
-                        "listen": "tcp:0.0.0.0:930" + str(port),
+                        "listen": f"tcp:0.0.0.0:{vault_port}",
                         "type": "proxy",
                     }
                 }
+                vault_port += 1
 
             if c_name.split("-")[1] in consul_list:
+
                 devices = {
                     "api_port": {
                         "connect": f"tcp:{srv_ip}:8500",
-                        "listen": "tcp:0.0.0.0:950" + str(port),
+                        "listen": f"tcp:0.0.0.0:{consul_port}",
                         "type": "proxy",
                     }
                 }
+                consul_port += 1
+
             print(f"Using devices:{devices}")
             container.devices = devices
             container.save(wait=True)
@@ -86,13 +108,19 @@ def create_cluster(cluster_name="primary"):
         # environment = {"IFACE": "eth0", }
 
         # put cluster_ip and hostname in a dictionary for each container
-        confs[container.name] = {
-            "cluster_ip": srv_ip,
-            "hostname": container.name,
-        }
+
         # create join_retry variable
         if container.name.split("-")[1] in consul_list:
             join_retry.append(srv_ip)
+            confs_consul[container.name] = {
+                "cluster_ip": srv_ip,
+                "hostname": container.name,
+            }
+        else:
+            confs_vault[container.name] = {
+                "cluster_ip": srv_ip,
+                "hostname": container.name,
+            }
 
         # Copy public key to connecto to the container
         print(f"Container {container.name} got IP {srv_ip}")
@@ -107,8 +135,15 @@ def create_cluster(cluster_name="primary"):
 
     # Create a yaml inventory for ansible
     inventory = {
-        "all": {"vars": {"join_retry": join_retry, "cluster_name": cluster_name},},
-        "vault": {"hosts": confs},
+        "all": {
+            "vars": {
+                "join_retry": join_retry,
+                "cluster_name": cluster_name,
+                "ansible_ssh_common_args": "-o StrictHostKeyChecking=no",
+            },
+        },
+        "vault": {"hosts": confs_vault},
+        "consul": {"hosts": confs_consul},
     }
     print(yaml.dump(inventory))
     with open(f"ansible/inventory_{cluster_name}.yaml", "w") as file:
@@ -123,20 +158,19 @@ def create_cluster(cluster_name="primary"):
         "root",
         "--flush-cache",
         "-v",
-        "-v",
-        "-l vault",
+        # "-l vault",
         "ansible/vault/playbook.yml",
     ]
     print(f"Calling ansible-playbook with: {' '.join(args)}")
-    run(
-        args=args, env={"ANSIBLE_HOST_KEY_CHECKING": "False"},
-    )
+    # run(
+    #    args=args, env={"ANSIBLE_HOST_KEY_CHECKING": "False"},
+    # )
 
 
 ####
 
 
-def create_c(name):
+def create_c(name, network):
 
     # https://github.com/lxc/lxd/blob/master/doc/rest-api.md
     config = {
@@ -149,16 +183,17 @@ def create_c(name):
             "alias": "focal/amd64",
         },
         "config": {"security.privileged": "True",},
+        "devices": {"eth0": {"name": "eth0", "network": "lxdbr1", "type": "nic"},},
     }
     pprint.pprint(config)
     print("creating container", name)
     return client.containers.create(config, wait=True)
 
 
-def create_base():
+def create_base(cluster_name, network):
     # create base container
-    if not client.containers.exists("base"):
-        container = create_c("base")
+    if not client.containers.exists("base-" + cluster_name):
+        container = create_c("base-" + cluster_name, network)
         # container.config = {"security.privileged": "True"}
         container.start(wait=True)
         container.save(wait=True)

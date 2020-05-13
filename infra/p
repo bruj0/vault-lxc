@@ -8,13 +8,18 @@ if [[ "$DEBUG" == "true" ]];then
     set -x
 fi
 #External variables
-if [ "$0" == "infra/p" ]; then
-    export VAULT_CLUSTER="primary"
-else
-    export VAULT_CLUSTER="secondary"
-fi
+case "$0" in
+    "infra/p")
+        export VAULT_CLUSTER="primary"
+    ;;
+    "infra/s")
+        export VAULT_CLUSTER="secondary"
+    ;;
+    "infra/dr")
+        export VAULT_CLUSTER="dr"
+    ;;
+esac
 #Internal variables
-STORAGE=${STORAGE:-"raft"}
 VAULT_VERSION="1.3.4"
 bold=$(tput bold)
 normal=$(tput sgr0)
@@ -22,7 +27,6 @@ typeset -a VAULT_primary_PORTS=("9201" "9202" "9203")
 typeset -a VAULT_secondary_PORTS=("9301" "9302" "9303")
 typeset -a VAULT_dr_PORTS=("9401" "9402" "9403")
 
-echo "# Using storage: ${STORAGE}"
 case "$1" in
      help)
         echo "${bold}Usage: $0 <command> <subcommand>${normal}"
@@ -44,21 +48,25 @@ case "$1" in
             echo "${VAULT_CLUSTER}-${i}:"
             lxc exec ${VAULT_CLUSTER}-${i} --  systemctl -o short --no-pager --lines 0 status $2
         done
-        if [ "${STORAGE}" == "consul" ]; then
+        if [ "${2}" == "consul" ]; then
             for i in "consul01" "consul02" "consul03"; do
                 lxc exec ${VAULT_CLUSTER}-${i} -- systemctl -o short --no-pager --lines 0 status $2
             done
         fi    
     ;;
-    "exec_all")
+    "exec_vault")
+        set +e
         for i in "vault01" "vault02" "vault03" "unsealer" "pki"; do
+            echo "Execution in ${VAULT_CLUSTER}-${i}: -- -- ${@:2}"
             lxc exec ${VAULT_CLUSTER}-${i} -- ${@:2}
         done
-        if [ "${STORAGE}" == "consul" ]; then
-            for i in "consul01" "consul02" "consul03"; do
-                lxc exec ${VAULT_CLUSTER}-${i} -- ${@:2}
-            done
-        fi
+    ;;
+    "exec_consul")
+        set +e
+        for i in "consul01" "consul02" "consul03"; do
+            echo "Execution in ${VAULT_CLUSTER}-${i}: ${@:2}"
+            lxc exec ${VAULT_CLUSTER}-${i} -- ${@:2}
+        done
     ;;
     "exec")
         lxc exec ${VAULT_CLUSTER}-$2 -- ${@:3}
@@ -69,23 +77,30 @@ case "$1" in
     "restart_vault")
 
             for i in "vault01" "vault02" "vault03"; do
+                    echo "Restart in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl restart vault
             done
     ;;
     "restart_consul")
 
             for i in "consul01" "consul03" "consul02"; do
+                    echo "Restart in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl restart consul
+            done
+    ;;
+    "start_consul")
+
+            for i in "consul01" "consul03" "consul02" "vault01" "vault02" "vault03"; do
+                    echo "Starting Consul in ${i}."
+                    lxc exec ${VAULT_CLUSTER}-$i -- systemctl start consul
             done
     ;;    
     "wipe")
-        if [ ! -z "$2" ]; then
-             sudo rm -fr infra/docker/storage/raft/${VAULT_CLUSTER}/$2
-             mkdir -p infra/docker/storage/raft/${VAULT_CLUSTER}/$2
-        else
-             sudo rm -fr infra/docker/storage/raft/${VAULT_CLUSTER}
-            mkdir -p infra/docker/storage/raft/${VAULT_CLUSTER}/{01,02,03,unsealer,pki}
-        fi
+            for i in "consul01" "consul03" "consul02" "vault01" "vault02" "vault03"; do
+                    echo "Wiping in ${VAULT_CLUSTER}-${i}."
+                    lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop consul
+                    lxc exec ${VAULT_CLUSTER}-$i -- rm -fr /var/consul/data
+            done
     ;;
     "wipe_nodes")
         sudo rm -fr infra/docker/storage/raft/${VAULT_CLUSTER}/{01,02,03}

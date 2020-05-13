@@ -2,9 +2,10 @@ storage "file" {
   path    = "/var/vault_data"
 }
 listener "tcp" {
-  address = "{{ HOSTNAME }}:8200"
-  tls_cert_file = "/vault/config/ssl/{{ HOSTNAME }}.pem"
-  tls_key_file = "/vault/config/ssl/{{ HOSTNAME }}.key"
+  address = "{{ HOSTNAME }}.lxd:8200"
+  cluster_address = "{{ HOSTNAME }}.lxd:8201"
+  tls_cert_file = "/etc/vault.d/{{ HOSTNAME }}.pem"
+  tls_key_file = "/etc/vault.d/{{ HOSTNAME }}.key"
 }
 ui = "true"
 telemetry {

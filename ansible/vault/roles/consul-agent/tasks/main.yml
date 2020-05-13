@@ -36,7 +36,7 @@
   
 - name: Copy systemd init file
   template:
-    src: consul.service.j2
+    src: consul-client.service.j2
     dest: /etc/systemd/system/consul.service
     owner: root
     group: root
@@ -55,5 +55,5 @@
 - name: consul service
   service:
     name: consul
-    state: stopped
+    state: started
     enabled: yes

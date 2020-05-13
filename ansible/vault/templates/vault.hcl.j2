@@ -1,10 +1,14 @@
-storage "raft" {
-  path    = "/var/vault_data"
-  node_id = "{{ HOSTNAME }}"
+#storage "raft" {
+#  path    = "/var/vault_data"
+#  node_id = "{{ HOSTNAME }}"
+#}
+storage "consul" {
+  address            = "127.0.0.1:8500"
+  scheme             = "http"
+  path               = "vault/"
 }
 listener "tcp" {
   address = "{{ HOSTNAME }}.lxd:8200"
-  cluster_address = "{{ HOSTNAME }}.lxd:8201"
   tls_cert_file = "/etc/vault.d/{{ HOSTNAME }}.pem"
   tls_key_file = "/etc/vault.d/{{ HOSTNAME }}.key"
 telemetry {
@@ -14,9 +18,9 @@ telemetry {
 }  
 }
 seal "transit" {
-  address            = "https://primary-unsealer.lxd:8200"
+  address            = "https://{{ CLUSTER }}-unsealer.lxd:8200"
   # token is read from VAULT_TOKEN env
-  #token              = "autounseal"
+  token              = "autounseal"
   disable_renewal    = ""
   //empty=false
   // Key configuration
@@ -25,7 +29,8 @@ seal "transit" {
   tls_ca_cert        = "/etc/vault.d/ca.pem"
 }
 ui = "true"
-cluster_addr = "https://{{ HOSTNAME }}:8201"
+cluster_addr = "https://{{ HOSTNAME }}.lxd:8201"
+api_addr = "https://{{ HOSTNAME }}.lxd:8200"
 cluster_name = "{{ CLUSTER }}"
 
 raw_storage_endpoint = true

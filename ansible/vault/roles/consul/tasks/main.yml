@@ -20,28 +20,23 @@
   with_items: "{{ consul_install_prerequisites }}"
   become: yes
 
-- name: Download binary
-  get_url:
-    url: https://releases.hashicorp.com/consul/{{consul_version}}/consul_{{consul_version}}_linux_amd64.zip
-    dest: /tmp/consul_{{consul_version}}_linux_amd64.zip
-    owner: "{{ consul_user }}"
-    group: "{{ consul_group }}"
-    mode: 0755
-    checksum: "{{consul_checksum}}"
-  register: consul_download
+- name: Check if Consul binary exists
+  stat:
+    path: /usr/local/bin/consul
+  register: stat_result
 
 - name: "Unzip consul archive"
   unarchive:
-    src: "{{ consul_download.dest }}"
+    src: "{{ BIN_DIR }}/consul/{{consul_version}}/consul-enterprise_{{consul_version}}+prem_linux_amd64.zip"
     dest: /usr/local/bin
-    copy: no
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"
     mode: 0755
+  when: not stat_result.stat.exists
 
 - name: Copy systemd init file
   template:
-    src: consul.service.j2
+    src: consul-server.service.j2
     dest: /etc/systemd/system/consul.service
     owner: root
     group: root
@@ -52,7 +47,7 @@
 
 - name: server config file
   template:
-    src: server.json.j2
+    src: server_agent.json.j2
     dest: "{{ consul_config_path }}/server_agent.json"
     owner: "{{ consul_user }}"
     group: "{{ consul_group }}"

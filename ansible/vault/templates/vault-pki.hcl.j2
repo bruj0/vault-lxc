@@ -2,7 +2,7 @@ storage "file" {
   path    = "/var/vault_data"
 }
 listener "tcp" {
-  address = "{{ HOSTNAME }}:8200"
+  address = "{{ HOSTNAME }}.lxd:8200"
   tls_disable = "true"
 telemetry {
   prometheus_retention_time = "30s"

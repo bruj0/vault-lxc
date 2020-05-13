@@ -6,12 +6,12 @@ After=network-online.target
 [Service]
 User=consul
 Group=consul
-PIDFile=/var/run/consul/consul.pid
+PIDFile=/run/consul/consul.pid
 PermissionsStartOnly=true
-ExecStartPre=-/bin/mkdir -p /mnt/data
-ExecStartPre=/bin/chown -R consul:consul /mnt/data
-ExecStartPre=-/bin/mkdir -p /var/run/consul
-ExecStartPre=/bin/chown -R consul:consul /var/run/consul
+ExecStartPre=-/bin/mkdir -p /var/consul/data
+ExecStartPre=/bin/chown -R consul:consul /var/consul/data
+ExecStartPre=-/bin/mkdir -p /run/consul
+ExecStartPre=/bin/chown -R consul:consul /run/consul
 ExecStart=/usr/local/bin/consul agent \
     -config-file=/etc/consul.d/server_agent.json \
     -pid-file=/var/run/consul/consul.pid
