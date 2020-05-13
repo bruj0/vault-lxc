@@ -20,6 +20,11 @@
   with_items: "{{ vault_install_prerequisites }}"
   become: yes
 
+- name: Check if Vault binary exists
+  stat:
+    path: /usr/local/bin/vault
+  register: stat_result
+
 - name: "Unzip vault archive"
   unarchive:
     src: "{{ BIN_DIR }}/vault/{{ vault_version }}/vault-enterprise_{{ vault_version }}+prem_linux_amd64.zip"
@@ -27,6 +32,7 @@
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
     mode: 0755
+  when: not stat_result.stat.exists
 
 - name: "Set vault binary capabilities"
   capabilities:
@@ -45,8 +51,15 @@
 - name: Ensures {{vault_config_path}} dir exists
   file: path={{vault_config_path}} state=directory
 
-- name: Ensures /var/raft dir exists
-  file: path="/var/raft" state=directory
+- name: Ensures /var/vault_data dir exists
+  file: path="/var/vault_data" state=directory
+
+- name: Change /var/vault_data ownership, group and permissions
+  file:
+    path: /var/vault_data
+    owner: vault
+    group: vault
+    mode: '0770'
 
 - name: config file
   template:

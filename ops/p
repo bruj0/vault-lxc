@@ -26,14 +26,12 @@ YAPI_BASE="ops/api"
 YAPI_PATH="${YAPI_BASE}/vault"
 bold=$(tput bold)
 normal=$(tput sgr0)
-STORAGE=${STORAGE:-"raft"}
 #Internal variables
-export VAULT_DATA="ops/${STORAGE}/${VAULT_CLUSTER}"
+export VAULT_DATA="ops/data/${VAULT_CLUSTER}"
 export VAULT_TOKEN=$(cat $VAULT_DATA/init.json | jq -r '.root_token')
 export VAULT_PREFIX=""
 case "$1" in
 "help")
-        echo "Using storage: ${bold}${STORAGE}${normal}"
         echo "${bold}Usage: $0 <vault node> <vault command>| <operation command>${normal}"
 
         echo "PKI:"
@@ -70,27 +68,7 @@ case "$1" in
     ;;
 ## LXC
 #ansible-playbook -i ansible/inventory_primary.yaml -u root --flush-cache -v -v -l primary-pki ansible/vault/playbook.yml
-"logs")
-        lxc exec ${VAULT_CLUSTER}-$2 -- journalctl --no-pager -b -u vault 
-;;
-"run")
-        if [ ! -z "$2" ]; then
-                lxc exec ${VAULT_CLUSTER}-$2 -- ${@:3}
-        else
-                for i in "vault01" "vault02" "vault03" "vault_unsealer"; do
-                        lxc exec ${VAULT_CLUSTER}-$i -- ${@:2}
-                done
-        fi
-;;
-"restart")
-        if [ ! -z "$2" ]; then
-                lxc exec ${VAULT_CLUSTER}-$2 systemctl -- restart vault
-        else
-                for i in "vault01" "vault02" "vault03" "vault_unsealer"; do
-                        lxc exec ${VAULT_CLUSTER}-$i -- systemctl restart vault
-                done
-        fi
-;;
+
 ## PKI
 "init_pki")
         # Initializaing and Unsealing
@@ -112,31 +90,29 @@ case "$1" in
         export VAULT_ADDR=${VAULT_PKI_ADDR}
         export VAULT_TOKEN=$(cat $VAULT_DATA/pki_init.json | jq -r '.root_token')        
         echo "Enabling PKI secret engine"
-        #yapi --debug ${YAPI_BASE}/pki/01-enable-pki.yaml
-        #sleep 3
+        yapi --debug ${YAPI_BASE}/pki/01-enable-pki.yaml
+        sleep 3
         yapi ${YAPI_BASE}/pki/02-vault-certificates.yaml
 ;;
 "copy_certs")
-    CA=$(cat ops/raft/${VAULT_CLUSTER}/ssl/signed_intermediate_ca.json |jq -r ".data.issuing_ca")
-    INTCA=$(cat ops/raft/${VAULT_CLUSTER}/ssl/signed_intermediate_ca.json |jq -r ".data.certificate")
-    for i in "vault01" "vault02" "vault03" "vault_unsealer"; do
+    CA=$(cat ops/data/${VAULT_CLUSTER}/ssl/signed_intermediate_ca.json |jq -r ".data.issuing_ca")
+    INTCA=$(cat ops/data/${VAULT_CLUSTER}/ssl/signed_intermediate_ca.json |jq -r ".data.certificate")
+    for i in "vault01" "vault02" "vault03" "unsealer" "consul01" "consul02" "consul03"; do
         echo "Building cert for $i"
-        CRT=$(cat ops/raft/${VAULT_CLUSTER}/ssl/${VAULT_CLUSTER}_${i}_1.json |jq -r ".data.certificate")
-        KEY=$(cat ops/raft/${VAULT_CLUSTER}/ssl/${VAULT_CLUSTER}_${i}_1.json |jq -r ".data.private_key")
-        cat >infra/docker/${STORAGE}/${VAULT_CLUSTER}/ssl/${i}.pem << EOL
+        CRT=$(cat ops/data/${VAULT_CLUSTER}/ssl/${VAULT_CLUSTER}-${i}.json |jq -r ".data.certificate")
+        KEY=$(cat ops/data/${VAULT_CLUSTER}/ssl/${VAULT_CLUSTER}-${i}.json |jq -r ".data.private_key")
+        cat >infra/data/${VAULT_CLUSTER}/ssl/${VAULT_CLUSTER}-${i}.pem << EOL
 ${CRT}
 EOL
-#        cat > infra/docker/${STORAGE}/${VAULT_CLUSTER}/ssl/${i}.pem << EOL
-#${CRT}
-#EOL
-        cat > infra/docker/${STORAGE}/${VAULT_CLUSTER}/ssl/${i}.key << EOL
+        cat > infra/data/${VAULT_CLUSTER}/ssl/${VAULT_CLUSTER}-${i}.key << EOL
 ${KEY}
 EOL
     done
-    cat > infra/docker/${STORAGE}/${VAULT_CLUSTER}/ssl/ca.pem << EOL
+   
+    cat > infra/data/${VAULT_CLUSTER}/ssl/ca.pem << EOL
 ${CA}
 EOL
-    cat > infra/docker/${STORAGE}/${VAULT_CLUSTER}/ssl/ca_int.pem << EOL
+    cat > infra/data/${VAULT_CLUSTER}/ssl/ca_int.pem << EOL
 ${INTCA}
 EOL
 ;;

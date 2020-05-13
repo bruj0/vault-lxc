@@ -3,12 +3,12 @@ test_name: 01-Create vault server certificate
 stages:
   - name: 02-Create vault01 server certificate
     request:
-      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
       method: POST
       headers:
         X-Vault-Token: "{env_vars.VAULT_TOKEN}"
       json:
-        common_name: "primary-vault01"
+        common_name: "primary-vault01.lxd"
         ttl": "720h"
     response:
       status_code: 200
@@ -16,15 +16,15 @@ stages:
         $ext:
           function: extensions.save_response
           extra_kwargs:
-            path: "{env_vars.VAULT_DATA}/ssl/primary_vault01_1.json"
+            path: "{env_vars.VAULT_DATA}/ssl/primary-vault01.json"
   - name: 03-Create vault02 server certificate
     request:
-      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
       method: POST
       headers:
         X-Vault-Token: "{env_vars.VAULT_TOKEN}"
       json:
-        common_name: "primary-vault02"
+        common_name: "primary-vault02.lxd"
         ttl": "720h"
     response:
       status_code: 200
@@ -32,15 +32,15 @@ stages:
         $ext:
           function: extensions.save_response
           extra_kwargs:
-            path: "{env_vars.VAULT_DATA}/ssl/primary_vault02_1.json"
+            path: "{env_vars.VAULT_DATA}/ssl/primary-vault02.json"
   - name: 04-Create vault03 server certificate
     request:
-      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
       method: POST
       headers:
         X-Vault-Token: "{env_vars.VAULT_TOKEN}"
       json:
-        common_name: "primary-vault03"
+        common_name: "primary-vault03.lxd"
         ttl": "720h"
     response:
       status_code: 200
@@ -48,15 +48,15 @@ stages:
         $ext:
           function: extensions.save_response
           extra_kwargs:
-            path: "{env_vars.VAULT_DATA}/ssl/primary_vault03_1.json"
+            path: "{env_vars.VAULT_DATA}/ssl/primary-vault03.json"
   - name: 05-Create unsealer server certificate
     request:
-      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/primary"
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
       method: POST
       headers:
         X-Vault-Token: "{env_vars.VAULT_TOKEN}"
       json:
-        common_name: "primary-unsealer"
+        common_name: "primary-unsealer.lxd"
         ip_sans: "127.0.0.1"
         ttl": "720h"
     response:
@@ -65,4 +65,55 @@ stages:
         $ext:
           function: extensions.save_response
           extra_kwargs:
-            path: "{env_vars.VAULT_DATA}/ssl/primary_vault_unsealer_1.json"
+            path: "{env_vars.VAULT_DATA}/ssl/primary-unsealer.json"
+  - name: 06-Create Consul01 server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-consul01.lxd"
+        ip_sans: "127.0.0.1"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary-consul01.json"
+  - name: 07-Create Consul02 server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-consul02.lxd"
+        ip_sans: "127.0.0.1"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary-consul02.json"
+  - name: 08-Create Consul03 server certificate
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/pki/issue/lxd"
+      method: POST
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        common_name: "primary-consul03.lxd"
+        ip_sans: "127.0.0.1"
+        ttl": "720h"
+    response:
+      status_code: 200
+      save:
+        $ext:
+          function: extensions.save_response
+          extra_kwargs:
+            path: "{env_vars.VAULT_DATA}/ssl/primary-consul03.json"                        

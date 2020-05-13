@@ -122,19 +122,7 @@ stages:
       status_code: 204
   - name: 10-Create roles
     request:
-      url: "{env_vars.VAULT_ADDR}/v1/pki/roles/dc1-consul"
-      method: POST
-      headers:
-        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
-      json:
-        allow_domains: "dc1.consul"
-        allow_subdomains: true
-        max_ttl: "720h"
-    response:
-      status_code: 204
-  - name: 10-Create roles
-    request:
-      url: "{env_vars.VAULT_ADDR}/v1/pki/roles/primary"
+      url: "{env_vars.VAULT_ADDR}/v1/pki/roles/lxd"
       method: POST
       headers:
         X-Vault-Token: "{env_vars.VAULT_TOKEN}"

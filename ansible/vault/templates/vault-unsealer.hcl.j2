@@ -1,5 +1,5 @@
 storage "file" {
-  path    = "/vault/raft"
+  path    = "/var/vault_data"
 }
 listener "tcp" {
   address = "{{ HOSTNAME }}:8200"

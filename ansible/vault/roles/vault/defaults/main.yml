@@ -1,5 +1,5 @@
 ---
-vault_version: "1.4.0"
+vault_version: "1.4.1"
 vault_install_prerequisites: ['unzip']
 vault_user: "vault"
 vault_group: "vault"
