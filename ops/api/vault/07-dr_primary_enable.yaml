@@ -1,0 +1,13 @@
+---
+test_name: Enable primary DR
+stages:
+  - name: Enable primary DR
+    request:
+      url: "{env_vars.VAULT_ADDR}/v1/sys/replication/dr/primary/enable"
+      method: PUT
+      headers:
+        X-Vault-Token: "{env_vars.VAULT_TOKEN}"
+      json:
+        primary_cluster_addr: "https://proxy.lxd:8201"
+    response:
+      status_code: 200
