@@ -48,6 +48,7 @@ case "$1" in
         echo "  ${bold}init_pki${normal}"
         echo "  ${bold}unseal_pki${normal}"
         echo "  ${bold}config_pki${normal}"
+        echo "  ${bold}copy_certs${normal}"
 
         echo "Unsealer:"
         echo "  ${bold}init_unsealer${normal}"
@@ -55,10 +56,9 @@ case "$1" in
         echo "  ${bold}config_unsealer${normal}"
 
         echo "Raft:"
-        echo "  ${bold}init_recovery${normal}"
         echo "  ${bold}<vault node> raft_config${normal}"
 
-        echo "Consul:"
+        echo "Vault:"
         echo "  ${bold}init${normal}"
         echo "  ${bold}unseal${normal}"
 
@@ -72,7 +72,6 @@ case "$1" in
         echo "  ${bold}vars${normal}: show Vault env vars"
         echo "  ${bold}vars_unsealer${normal}: show Vault env vars for the unsealer"
         echo "  ${bold}yapi${normal}: runs yapi with correct variables"
-        echo "  ${bold}logs <node number>${normal}"
         echo "  ${bold}generate_root_recovery${normal}"
 
     ;;
@@ -115,7 +114,7 @@ ${INTCA}
 EOL
 # Individual certs
 
-    for i in "vault01" "vault02" "vault03" "unsealer" "consul01" "consul02" "consul03"; do
+    for i in "vault01" "vault02" "vault03" "unsealer"; do
         echo "Building cert for $i"
         CRT=$(cat ${ops_data}/${VAULT_CLUSTER}-${i}.json |jq -r ".data.certificate")
         KEY=$(cat ${ops_data}/${VAULT_CLUSTER}-${i}.json |jq -r ".data.private_key")
@@ -169,7 +168,7 @@ EOL
         echo "Unsealing Vault"
         yapi ${YAPI_PATH}/02-unseal.yaml
 ;;
-## Replication
+## Performance Replication
 "enable_perf")
         set +e
         export SECONDARY_HAPROXY_ADDR=$(docker network inspect vault_secondaryA | jq -r '.[] .Containers | with_entries(select(.value.Name=="raft_proxy"))| .[] .IPv4Address' | awk -F "/" '{print $1}')
@@ -198,6 +197,10 @@ EOL
         yapi ${YAPI_PATH}/05-replication_activate_secondary.yaml 
 ;;
 
+## DR Replication
+
+
+
 ## General
 "wipe")
     rm $VAULT_DATA/*
@@ -222,10 +225,6 @@ EOL
 "yapi")
         yapi ${@}
 ;;
-"logs")
-        docker logs ${VAULT_CLUSTER}-vault0$2  -f 2>&1 |grep -v checkpoint
-;;
-
 "generate_root_recovery")
         echo "Creating a root token for secondary with the new unseal keys"
         export VAULT_DATA_PRIMARY="ops/${STORAGE}/primary"        

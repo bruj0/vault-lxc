@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import yaml
 from pathlib import Path
 from subprocess import run
@@ -29,8 +30,104 @@ base_cmd = [
 
 
 def main():
-    # create_cluster("primary")
-    create_cluster("dr")
+    cluster_name = sys.argv[1]
+    create_proxy()
+    # create_cluster(cluster_name)
+
+
+def create_proxy():
+
+    c_name = "proxy"
+    if not client.containers.exists(c_name):
+        container = copy_c(f"base-primary", c_name)
+        container.config.update(
+            {
+                "user.network-config": """
+version: 1
+config:
+    - type: physical
+      name: eth0
+      subnets:
+          - type: dhcp
+            control: auto
+    - type: physical
+      name: eth1
+      subnets:
+          - type: dhcp
+            control: auto
+    - type: physical
+      name: eth2
+      subnets:
+          - type: dhcp
+            control: auto                        
+"""
+            }
+        )
+        container.devices.update(
+            {
+                "eth0": {
+                    "name": "eth0",
+                    "nictype": "bridged",
+                    "parent": "lxdbr0",
+                    "type": "nic",
+                },
+                "eth1": {
+                    "name": "eth1",
+                    "nictype": "bridged",
+                    "parent": "lxdbr1",
+                    "type": "nic",
+                },
+                "eth2": {
+                    "name": "eth2",
+                    "nictype": "bridged",
+                    "parent": "lxdbr2",
+                    "type": "nic",
+                },
+            }
+        )
+        container.save(wait=True)
+        container.start(wait=True)
+        while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
+            print(".. waiting for container", container.name, "to get ipv4 ..")
+            time.sleep(3)
+        srv_ip = container.state().network["eth0"]["addresses"][0]["address"]
+        devices = {
+            "api_port": {
+                "connect": f"tcp:{srv_ip}:1936",
+                "listen": f"tcp:0.0.0.0:9900",
+                "type": "proxy",
+            }
+        }
+        print(f"Using devices:{devices}")
+        container.devices.update(devices)
+        container.save(wait=True)
+        execute_c(
+            container,
+            "apt-get install haproxy -y".split(),
+            {"DEBIAN_FRONTEND": "noninteractive"},
+        )
+        pub_key = str(Path.home()) + "/.ssh/id_rsa.pub"
+        print(f"\tCopying pub key: {pub_key}")
+        copy_file(
+            pub_key, "/root/.ssh/authorized_keys", container,
+        )
+        print(f"\tCopying pub key: haproxy.cfg")
+        copy_file(
+            "ansible/vault/templates/haproxy.cfg",
+            "/etc/haproxy/haproxy.cfg",
+            container,
+        )
+        print(f"\tStarting haproxy")
+        execute_c(
+            container,
+            "systemctl enable haproxy".split(),
+            {"DEBIAN_FRONTEND": "noninteractive"},
+        )
+        execute_c(
+            container,
+            "systemctl start haproxy".split(),
+            {"DEBIAN_FRONTEND": "noninteractive"},
+        )
 
 
 def create_cluster(cluster_name="primary"):
@@ -68,7 +165,7 @@ def create_cluster(cluster_name="primary"):
         c_name = cluster_name + "-" + c
         devices = {}
         if not client.containers.exists(c_name):
-            container = copy_c("base", c_name)
+            container = copy_c(f"base-{cluster_name}", c_name)
             container.start(wait=True)
             while container.state().network["eth0"]["addresses"][0]["family"] != "inet":
                 print(".. waiting for container", container.name, "to get ipv4 ..")
@@ -99,7 +196,7 @@ def create_cluster(cluster_name="primary"):
                 consul_port += 1
 
             print(f"Using devices:{devices}")
-            container.devices = devices
+            container.devices.update(devices)
             container.save(wait=True)
         else:
             # Container already exists
@@ -170,7 +267,7 @@ def create_cluster(cluster_name="primary"):
 ####
 
 
-def create_c(name, network):
+def create_c(name, iface):
 
     # https://github.com/lxc/lxd/blob/master/doc/rest-api.md
     config = {
@@ -183,17 +280,17 @@ def create_c(name, network):
             "alias": "focal/amd64",
         },
         "config": {"security.privileged": "True",},
-        "devices": {"eth0": {"name": "eth0", "network": "lxdbr1", "type": "nic"},},
+        "devices": {"eth0": {"name": "eth0", "network": iface, "type": "nic"},},
     }
     pprint.pprint(config)
     print("creating container", name)
     return client.containers.create(config, wait=True)
 
 
-def create_base(cluster_name, network):
+def create_base(cluster_name, iface):
     # create base container
     if not client.containers.exists("base-" + cluster_name):
-        container = create_c("base-" + cluster_name, network)
+        container = create_c("base-" + cluster_name, iface)
         # container.config = {"security.privileged": "True"}
         container.start(wait=True)
         container.save(wait=True)

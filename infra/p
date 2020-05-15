@@ -31,13 +31,14 @@ case "$1" in
      help)
         echo "${bold}Usage: $0 <command> <subcommand>${normal}"
         echo ""
-        echo "${bold}sh${normal}: <container name>"
+        echo "${bold}sh${normal}: <container>"
         echo "${bold}status${normal}: <systemd service>"
         echo "${bold}exec_all${normal}: <command>"
-        echo "${bold}exec${normal}: <container name> <command>"
-        echo "${bold}logs${normal}: <systemd service>"
+        echo "${bold}exec${normal}: <container> <command>"
+        echo "${bold}logs${normal}: <container> <systemd service>"
         echo "${bold}restart_vault${normal}"
         echo "${bold}restart_consul${normal}"
+        echo "${bold}wipe_consul${normal}: stop consul and wipe data"
     ;;     
     "sh")
         lxc exec ${VAULT_CLUSTER}-$2 bash
@@ -72,7 +73,7 @@ case "$1" in
         lxc exec ${VAULT_CLUSTER}-$2 -- ${@:3}
     ;;     
     "logs")
-            lxc exec ${VAULT_CLUSTER}-$2 -- journalctl --no-pager -b -f -u $3 
+            lxc exec ${VAULT_CLUSTER}-$2 -- journalctl -o cat --no-pager -b -f -u $3 | grep -v checkpoint
     ;;
     "restart_vault")
 
@@ -95,14 +96,14 @@ case "$1" in
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl start consul
             done
     ;;    
-    "wipe")
+    "wipe_consul")
             for i in "consul01" "consul03" "consul02" "vault01" "vault02" "vault03"; do
                     echo "Wiping in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop consul
                     lxc exec ${VAULT_CLUSTER}-$i -- rm -fr /var/consul/data
             done
     ;;
-    "wipe_nodes")
+    "wipe_raft")
         sudo rm -fr infra/docker/storage/raft/${VAULT_CLUSTER}/{01,02,03}
         mkdir -p infra/docker/storage/raft/${VAULT_CLUSTER}/{01,02,03}
     ;;
