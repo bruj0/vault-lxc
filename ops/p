@@ -49,6 +49,7 @@ case "$1" in
         echo "  ${bold}unseal_pki${normal}"
         echo "  ${bold}config_pki${normal}"
         echo "  ${bold}copy_certs${normal}"
+        echo "  ${bold}copy_ca${normal}: Copy ${VAULT_CLUSTER} CA certs to the DR and Secondary"
 
         echo "Unsealer:"
         echo "  ${bold}init_unsealer${normal}"
@@ -87,13 +88,16 @@ case "$1" in
             echo "Initializing Vault PKI for ${VAULT_CLUSTER} at ${VAULT_ADDR}, files stored in ${VAULT_DATA}"
             yapi ${YAPI_PATH}/01-init.yaml 
         fi
-;;
+## fall trough to unseal_pki
+;&
 "unseal_pki")
         export VAULT_PREFIX="pki_"
         export VAULT_ADDR=${VAULT_PKI_ADDR}
         echo "Unsealing Vault PKI"
         yapi ${YAPI_PATH}/02-unseal.yaml
-;;
+
+## fall trough to config_pki
+;&
 "config_pki")
         set +e
         export VAULT_ADDR=${VAULT_PKI_ADDR}
@@ -102,7 +106,8 @@ case "$1" in
         yapi ${YAPI_BASE}/pki/01-enable-pki.yaml || true
         sleep 3
         yapi ${YAPI_BASE}/pki/02-vault-certificates.yaml
-;;
+## fall through to copy_certs 
+;& 
 "copy_certs")
     infra_data="infra/data/${VAULT_CLUSTER}/ssl"
     ops_data="ops/data/${VAULT_CLUSTER}/ssl"
@@ -132,12 +137,17 @@ EOL
         scp -oStrictHostKeyChecking=no ${infra_data}/ca.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
         scp -oStrictHostKeyChecking=no ${infra_data}/ca_int.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
     done
-;;
-"copy_certs_ca"
+##fall trough to copy_ca
+;&
+"copy_ca")
+    infra_data="infra/data/${VAULT_CLUSTER}/ssl"
     for i in "dr" "secondary"; do
         echo "Copying CA cert to $i"
-        scp -oStrictHostKeyChecking=no ${infra_data}/ca.pem   root@${i}-${i}:/etc/vault.d/
-        scp -oStrictHostKeyChecking=no ${infra_data}/ca_int.pem   root@${i}-${i}:/etc/vault.d/
+        for v in "vault01" "vault02" "vault03"; do
+            scp -oStrictHostKeyChecking=no ${infra_data}/ca.pem   root@${i}-${v}:/etc/vault.d/${VAULT_CLUSTER}-ca.pem
+            scp -oStrictHostKeyChecking=no ${infra_data}/ca_int.pem   root@${i}-${v}:/etc/vault.d/${VAULT_CLUSTER}-ca_int.pem
+        done
+    done
 ;;
 ## Unsealer operations
 "init_unsealer")
@@ -221,8 +231,15 @@ EOL
         yapi ${YAPI_PATH}/13-dr_secondary_enable.yaml
 ;;
 ## General
+"ssh_keyscan")
+    for c in "dr" "secondary" "primary"; do
+        for h in "vault01" "vault02" "vault03" "unsealer" "pki" "consul01" "consul02" "consul03"; do
+            ssh-keyscan ${c}-${h}
+        done
+    done
+;;
 "wipe")
-    rm $VAULT_DATA/*
+    echo rm $VAULT_DATA/*
 ;;
 "vars")
         echo "Exporting variables for ${VAULT_CLUSTER} Vault"

@@ -28,6 +28,10 @@ seal "transit" {
   mount_path         = "transit/"
   tls_ca_cert        = "/etc/vault.d/ca.pem"
 }
+replication {
+ resolver_discover_servers = false
+}
+
 ui = "true"
 cluster_addr = "https://{{ HOSTNAME }}.lxd:8201"
 api_addr = "https://{{ HOSTNAME }}.lxd:8200"

@@ -15,6 +15,7 @@ stages:
             sub_vars: True
         token: "ext.wrap_info.token"
         primary_api_addr: "https://proxy.lxd:8200"
+        ca_file: "/etc/vault.d/primary-ca.pem"
     response:
       status_code: 200
       save:
