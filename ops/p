@@ -63,9 +63,9 @@ case "$1" in
         echo "  ${bold}init${normal}"
 
         echo "Replication":
-        echo "    ${bold}enable_perf${normal}"
+        echo "    ${bold}enable_perf${normal}: on primary"
+        echo "    ${bold}activate_perf${normal}: on secondary" 
         echo "    ${bold}disable_secondary${normal}"
-        echo "    ${bold}activate_perf${normal}(only on secondary)" 
 
         echo "DR":
         echo "    ${bold}primary_enable_dr${normal}"
@@ -137,8 +137,7 @@ EOL
         scp -oStrictHostKeyChecking=no ${infra_data}/ca.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
         scp -oStrictHostKeyChecking=no ${infra_data}/ca_int.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
     done
-##fall trough to copy_ca
-;&
+;;
 "copy_ca")
     infra_data="infra/data/${VAULT_CLUSTER}/ssl"
     for i in "dr" "secondary"; do
@@ -158,13 +157,13 @@ EOL
             echo "Initializing Vault cluster ${CLUSTER} at ${VAULT_ADDR}, files stored in ${VAULT_DATA}"
             yapi ${YAPI_PATH}/01-init.yaml 
         fi
-;;
+;&
 "unseal_unsealer")
         export VAULT_PREFIX="unsealer_"
         export VAULT_ADDR=${VAULT_UNSEALER_ADDR}
         echo "Unsealing Vault Unsealer"
         yapi ${YAPI_PATH}/02-unseal.yaml
-;;
+;&
 "config_unsealer")
         set +e
         export VAULT_ADDR=${VAULT_UNSEALER_ADDR}
@@ -184,20 +183,11 @@ EOL
 ## Performance Replication
 "enable_perf")
         set +e
-        export SECONDARY_HAPROXY_ADDR=$(docker network inspect vault_secondaryA | jq -r '.[] .Containers | with_entries(select(.value.Name=="raft_proxy"))| .[] .IPv4Address' | awk -F "/" '{print $1}')
         echo "Enabling replication in ${VAULT_CLUSTER}"
         yapi ${YAPI_PATH}/03-replication_enable_primary.yaml 
 
-        echo "Creating secondary JWT token id=secondary"
+        echo "Creating secondary JWT token id=perf-secondary"
         yapi ${YAPI_PATH}/04-replication_secondary_token.yaml 
-
-        echo "Enabling secondary replication to primary"
-        VAULT_TOKEN_SEC=$(cat secondary/${VAULT_DATA}/init.json | jq -r '.root_token')
-        VAULT_ADDR=http://127.0.0.1:9301 VAULT_TOKEN=${VAULT_TOKEN_SEC} \
-        yapi yapi/vault/05-replication_activate_secondary.yaml         
-;;
-"disable_secondary")
-    vault write -f sys/replication/performance/primary/revoke-secondary id=secondary
 ;;
 "activate_perf")
         if [ "$0" == "ops/p" ]; then
@@ -205,8 +195,14 @@ EOL
             exit 0
         fi
         echo "Enabling secondary replication to primary"
-        export VAULT_DATA_PRIMARY="ops/data/${VAULT_CLUSTER}/primary"
+        export VAULT_DATA_PRIMARY="ops/data/primary"
         yapi ${YAPI_PATH}/05-replication_activate_secondary.yaml 
+
+        echo "Enabling secondary replication to primary"
+        yapi ${YAPI_PATH}/05-replication_activate_secondary.yaml                 
+;;
+"disable_secondary")
+    vault write -f sys/replication/performance/primary/revoke-secondary id=secondary
 ;;
 ## DR Replication
 "primary_enable_dr")

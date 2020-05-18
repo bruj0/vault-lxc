@@ -32,7 +32,7 @@ base_cmd = [
 def main():
     cluster_name = sys.argv[1]
     create_proxy()
-    # create_cluster(cluster_name)
+    create_cluster(cluster_name)
 
 
 def create_proxy():
@@ -259,9 +259,9 @@ def create_cluster(cluster_name="primary"):
         "ansible/vault/playbook.yml",
     ]
     print(f"Calling ansible-playbook with: {' '.join(args)}")
-    # run(
-    #    args=args, env={"ANSIBLE_HOST_KEY_CHECKING": "False"},
-    # )
+    run(
+        args=args, env={"ANSIBLE_HOST_KEY_CHECKING": "False"},
+    )
 
 
 ####

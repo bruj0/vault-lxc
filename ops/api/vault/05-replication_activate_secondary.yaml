@@ -11,14 +11,15 @@ stages:
         $ext:
           function: extensions.read_json
           extra_kwargs:
-            path: "{env_vars.VAULT_DATA_PRIMARY}/secondary-token.json"
+            path: "{env_vars.VAULT_DATA_PRIMARY}/perf-secondary-token.json"
             sub_vars: True
         token: "ext.wrap_info.token"
-        primary_api_addr: "http://{env_vars.SECONDARY_HAPROXY_ADDR}:8200"
+        primary_api_addr: "https://proxy.lxd:8200"
+        ca_file: "/etc/vault.d/primary-ca.pem"
     response:
       status_code: 200
       save:
         $ext:
           function: extensions.save_response
           extra_kwargs:
-            path: "{env_vars.VAULT_DATA}/enable-secondary-resp.json"
+            path: "{env_vars.VAULT_DATA}/enable-perf-secondary-resp.json"
