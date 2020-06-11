@@ -68,6 +68,22 @@
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
 
+- name: config file for raft
+  template:
+    src: "vault-raft.hcl"
+    dest: "{{ vault_config_path }}/vault-raft.hcl"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+  when:  not HOSTNAME is  search("pki") and not HOSTNAME is search("unsealer")
+
+- name: config file for consul
+  template:
+    src: "vault-consul.hcl"
+    dest: "{{ vault_config_path }}/vault-consul.hcl"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+  when:  not HOSTNAME is  search("pki") and not HOSTNAME is search("unsealer")
+
 - name: vault service
   service:
     name: vault

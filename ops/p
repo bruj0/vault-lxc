@@ -56,25 +56,24 @@ case "$1" in
         echo "  ${bold}unseal_unsealer${normal}"
         echo "  ${bold}config_unsealer${normal}"
 
-        echo "Raft:"
-        echo "  ${bold}<vault node> raft_config${normal}"
-
         echo "Vault:"
         echo "  ${bold}init${normal}"
 
         echo "Replication":
         echo "    ${bold}enable_perf${normal}: on primary"
         echo "    ${bold}activate_perf${normal}: on secondary" 
-        echo "    ${bold}disable_secondary${normal}"
+        echo "    ${bold}revoke_perf${normal}"
 
         echo "DR":
-        echo "    ${bold}primary_enable_dr${normal}"
-        echo "    ${bold}sec_enable_dr${normal}(only on secondary)" 
+        echo "    ${bold}enable_dr${normal}"
+        echo "    ${bold}activate_dr${normal}(only on secondary)" 
+        echo "    ${bold}revoke_dr${normal}"
 
         echo "General:"
         echo "  ${bold}wipe${normal}"
         echo "  ${bold}vars${normal}: show Vault env vars"
         echo "  ${bold}vars_unsealer${normal}: show Vault env vars for the unsealer"
+        echo "  ${bold}vars_pki${normal}: show Vault env vars for the pki"
         echo "  ${bold}yapi${normal}: runs yapi with correct variables"
         echo "  ${bold}generate_root_recovery${normal}"
 
@@ -201,11 +200,11 @@ EOL
         echo "Enabling secondary replication to primary"
         yapi ${YAPI_PATH}/05-replication_activate_secondary.yaml                 
 ;;
-"disable_secondary")
+"revoke_perf")
     vault write -f sys/replication/performance/primary/revoke-secondary id=secondary
 ;;
 ## DR Replication
-"primary_enable_dr")
+"enable_dr")
         if [ "$0" != "ops/p" ]; then
             echo "Must be enabled in primary"
             exit 0
@@ -217,7 +216,7 @@ EOL
         echo "Creating secondary DR JWT token id=dr-secondary"
         yapi ${YAPI_PATH}/12-dr_secondary_token.yaml
 ;;
-"sec_enable_dr")
+"activate_dr")
         if [ "$0" != "ops/dr" ]; then
             echo "Must be activated in dr"
             exit 0
@@ -226,7 +225,25 @@ EOL
         export VAULT_DATA_PRIMARY="ops/data/primary"
         yapi ${YAPI_PATH}/13-dr_secondary_enable.yaml
 ;;
+"revoke_dr")
+    vault write -f sys/replication/dr/primary/revoke-secondary id=dr-secondary
+;;
 ## General
+"switch_consul")
+    set +e
+    for i in "vault01" "vault02" "vault03" ; do
+        echo "Switching to consul storage for $i"
+        lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-raft.hcl /etc/vault.d/vault-raft.dis; /etc/vault.d/vault-consul.dis /etc/vault.d/vault-consul.hcl; 
+    done
+;;
+"switch_raft")
+    set +e
+    for i in "vault01" "vault02" "vault03" ; do
+        echo "Switching to consul storage for $i"
+        lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-raft.dis /etc/vault.d/vault-raft.hcl 
+        lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-consul.hcl /etc/vault.d/vault-consul.dis
+    done
+;;
 "ssh_keyscan")
     for c in "dr" "secondary" "primary"; do
         for h in "vault01" "vault02" "vault03" "unsealer" "pki" "consul01" "consul02" "consul03"; do

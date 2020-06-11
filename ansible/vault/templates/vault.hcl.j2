@@ -1,12 +1,3 @@
-#storage "raft" {
-#  path    = "/var/vault_data"
-#  node_id = "{{ HOSTNAME }}"
-#}
-storage "consul" {
-  address            = "127.0.0.1:8500"
-  scheme             = "http"
-  path               = "vault/"
-}
 listener "tcp" {
   address = "{{ HOSTNAME }}.lxd:8200"
   tls_cert_file = "/etc/vault.d/{{ HOSTNAME }}.pem"

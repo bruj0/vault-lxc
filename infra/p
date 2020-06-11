@@ -33,12 +33,15 @@ case "$1" in
         echo ""
         echo "${bold}sh${normal}: <container>"
         echo "${bold}status${normal}: <systemd service>"
-        echo "${bold}exec_all${normal}: <command>"
+        echo "${bold}exec_vault${normal}: <command>"        
+        echo "${bold}exec_consul${normal}: <command>"
         echo "${bold}exec${normal}: <container> <command>"
         echo "${bold}logs${normal}: <container> <systemd service>"
         echo "${bold}restart_vault${normal}"
         echo "${bold}restart_consul${normal}"
         echo "${bold}wipe_consul${normal}: stop consul and wipe data"
+        echo "${bold}wipe_raft${normal}:  wipe raft data"
+
     ;;     
     "sh")
         lxc exec ${VAULT_CLUSTER}-$2 bash
@@ -104,7 +107,10 @@ case "$1" in
             done
     ;;
     "wipe_raft")
-        sudo rm -fr infra/docker/storage/raft/${VAULT_CLUSTER}/{01,02,03}
-        mkdir -p infra/docker/storage/raft/${VAULT_CLUSTER}/{01,02,03}
+            for i in "vault01" "vault02" "vault03"; do
+                    echo "Wiping in ${VAULT_CLUSTER}-${i}."
+                    lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop vault
+                    lxc exec ${VAULT_CLUSTER}-$i -- rm -fr /var/vault_data/*
+            done
     ;;
 esac
