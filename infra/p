@@ -30,17 +30,27 @@ typeset -a VAULT_dr_PORTS=("9401" "9402" "9403")
 case "$1" in
      help)
         echo "${bold}Usage: $0 <command> <subcommand>${normal}"
-        echo ""
+        echo "${bold}Others:${normal}"
         echo "${bold}sh${normal}: <container>"
         echo "${bold}status${normal}: <systemd service>"
-        echo "${bold}exec_vault${normal}: <command>"        
-        echo "${bold}exec_consul${normal}: <command>"
-        echo "${bold}exec${normal}: <container> <command>"
         echo "${bold}logs${normal}: <container> <systemd service>"
-        echo "${bold}restart_vault${normal}"
-        echo "${bold}restart_consul${normal}"
-        echo "${bold}wipe_consul${normal}: stop consul and wipe data"
-        echo "${bold}wipe_raft${normal}:  wipe raft data"
+
+        echo "${bold}Exec:${normal}"
+        echo "  ${bold}exec_vault${normal}: <command>"        
+        echo "  ${bold}exec_consul${normal}: <command>"
+        echo "  ${bold}exec_all${normal}: <command>"
+        echo "  ${bold}exec${normal}: <container> <command>"
+
+        echo "${bold}Start/Stop:${normal}"
+        echo "  ${bold}start_services${normal}: unsealer and pki vault"
+        echo "  ${bold}restart_vault${normal}"
+        echo "  ${bold}restart_consul${normal}"
+        echo "  ${bold}stop_vault${normal}"
+        echo "  ${bold}stop_consul${normal}"
+
+        echo "${bold}Start/Stop:${normal}"
+        echo "  ${bold}wipe_consul${normal}: stop consul and wipe data"
+        echo "  ${bold}wipe_raft${normal}:  wipe raft data"
 
     ;;     
     "sh")
@@ -74,32 +84,61 @@ case "$1" in
     ;;
     "exec")
         lxc exec ${VAULT_CLUSTER}-$2 -- ${@:3}
+    ;;
+    "exec_all")
+        set -x
+        set +e
+        for i in "vault01" "vault02" "vault03" "unsealer" "pki" "consul01" "consul02" "consul03"; do
+            echo "Execution in ${VAULT_CLUSTER}-${i}: ${@:2}"
+            lxc exec ${VAULT_CLUSTER}-${i} -- sh -c  "${@:2}"
+        done
     ;;     
     "logs")
             lxc exec ${VAULT_CLUSTER}-$2 -- journalctl -o cat --no-pager -b -f -u $3 | grep -v checkpoint
     ;;
+    "restart_services")
+            lxc exec ${VAULT_CLUSTER}-pki -- systemctl restart vault
+            lxc exec ${VAULT_CLUSTER}-unsealer -- systemctl restart unsealer
+    ;;
     "restart_vault")
-
+            set +e
             for i in "vault01" "vault02" "vault03"; do
                     echo "Restart in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl restart vault
             done
     ;;
     "restart_consul")
-
+            set +e
             for i in "consul01" "consul03" "consul02"; do
                     echo "Restart in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl restart consul
             done
     ;;
     "start_consul")
-
+            set +e
             for i in "consul01" "consul03" "consul02" "vault01" "vault02" "vault03"; do
                     echo "Starting Consul in ${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl start consul
             done
     ;;    
+    "stop_consul")
+            set +e
+            for i in "consul01" "consul03" "consul02" "vault01" "vault02" "vault03"; do
+                    echo "Stopping Consul in ${i}."
+                    lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop consul
+            done
+    ;;
+    "stop_vault")
+            set +e
+            for i in "vault01" "vault02" "vault03"; do
+                    echo "Stopping in ${VAULT_CLUSTER}-${i}."
+                    lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop vault
+            done
+    ;;      
     "wipe_consul")
+            set +e
+            echo "WIPE CONSUL ON: ${VAULT_CLUSTER}?"
+            read    
             for i in "consul01" "consul03" "consul02" "vault01" "vault02" "vault03"; do
                     echo "Wiping in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop consul
@@ -107,10 +146,13 @@ case "$1" in
             done
     ;;
     "wipe_raft")
+            set +e
+            echo "WIPE RAFT ON: ${VAULT_CLUSTER}?"
+            read
             for i in "vault01" "vault02" "vault03"; do
                     echo "Wiping in ${VAULT_CLUSTER}-${i}."
                     lxc exec ${VAULT_CLUSTER}-$i -- systemctl stop vault
-                    lxc exec ${VAULT_CLUSTER}-$i -- rm -fr /var/vault_data/*
+                    lxc exec ${VAULT_CLUSTER}-$i -- sh -c 'rm -fr /var/vault_data/*'
             done
     ;;
 esac

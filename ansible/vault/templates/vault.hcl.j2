@@ -1,3 +1,10 @@
+{% if RAFT == true %}
+{% include "vault-raft.hcl" %}
+{% else %}
+{% include "vault-consul.hcl" %}
+{% endif %}
+
+
 listener "tcp" {
   address = "{{ HOSTNAME }}.lxd:8200"
   tls_cert_file = "/etc/vault.d/{{ HOSTNAME }}.pem"

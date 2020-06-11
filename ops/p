@@ -58,6 +58,7 @@ case "$1" in
 
         echo "Vault:"
         echo "  ${bold}init${normal}"
+        echo "  ${bold}join_raft${normal}"
 
         echo "Replication":
         echo "    ${bold}enable_perf${normal}: on primary"
@@ -131,10 +132,16 @@ EOL
         cat > ${infra_data}/${VAULT_CLUSTER}-${i}.key << EOL
 ${KEY}
 EOL
-        scp -oStrictHostKeyChecking=no ${infra_data}/${VAULT_CLUSTER}-${i}.pem  root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
-        scp -oStrictHostKeyChecking=no ${infra_data}/${VAULT_CLUSTER}-${i}.key   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
-        scp -oStrictHostKeyChecking=no ${infra_data}/ca.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
-        scp -oStrictHostKeyChecking=no ${infra_data}/ca_int.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
+        #Individual certs
+        scp ${infra_data}/${VAULT_CLUSTER}-${i}.pem  root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
+        scp ${infra_data}/${VAULT_CLUSTER}-${i}.key   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
+        #CA certs
+        scp ${infra_data}/ca.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
+        scp ${infra_data}/ca_int.pem   root@${VAULT_CLUSTER}-${i}:/etc/vault.d/
+        #Trust store rebuild
+        scp ${infra_data}/ca.pem   root@${VAULT_CLUSTER}-${i}:/usr/local/share/ca-certificates/${VAULT_CLUSTER}-ca.crt
+        scp ${infra_data}/ca_int.pem   root@${VAULT_CLUSTER}-${i}:/usr/local/share/ca-certificates/${VAULT_CLUSTER}-ca_int.crt
+        lxc exec ${VAULT_CLUSTER}-$i --  update-ca-certificates --fresh
     done
 ;;
 "copy_ca")
@@ -142,8 +149,11 @@ EOL
     for i in "dr" "secondary"; do
         echo "Copying CA cert to $i"
         for v in "vault01" "vault02" "vault03"; do
-            scp -oStrictHostKeyChecking=no ${infra_data}/ca.pem   root@${i}-${v}:/etc/vault.d/${VAULT_CLUSTER}-ca.pem
-            scp -oStrictHostKeyChecking=no ${infra_data}/ca_int.pem   root@${i}-${v}:/etc/vault.d/${VAULT_CLUSTER}-ca_int.pem
+            scp ${infra_data}/ca.pem   root@${i}-${v}:/etc/vault.d/${VAULT_CLUSTER}-ca.pem
+            scp ${infra_data}/ca.pem   root@${i}-${v}:/usr/local/share/ca-certificates/${VAULT_CLUSTER}-ca.crt
+            scp ${infra_data}/ca_int.pem   root@${i}-${v}:/usr/local/share/ca-certificates/${VAULT_CLUSTER}-ca_int.crt
+            scp ${infra_data}/ca_int.pem   root@${i}-${v}:/etc/vault.d/${VAULT_CLUSTER}-ca_int.pem
+            lxc exec ${i}-$v --  update-ca-certificates --fresh
         done
     done
 ;;
@@ -200,8 +210,11 @@ EOL
         echo "Enabling secondary replication to primary"
         yapi ${YAPI_PATH}/05-replication_activate_secondary.yaml                 
 ;;
+
 "revoke_perf")
-    vault write -f sys/replication/performance/primary/revoke-secondary id=secondary
+    vault write -f sys/replication/performance/primary/revoke-secondary id=perf-secondary
+    rm ops/data/primary/perf-secondary-token.json
+    rm ops/data/secondary/enable-perf-secondary-resp.json
 ;;
 ## DR Replication
 "enable_dr")
@@ -244,6 +257,11 @@ EOL
         lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-consul.hcl /etc/vault.d/vault-consul.dis
     done
 ;;
+"join_raft")
+    set +e
+    VAULT_ADDR="${VAULT_BASE_ADDR}2" vault operator raft join https://${VAULT_CLUSTER}-vault01.lxd:8200
+    VAULT_ADDR="${VAULT_BASE_ADDR}3" vault operator raft join https://${VAULT_CLUSTER}-vault01.lxd:8200
+;;
 "ssh_keyscan")
     for c in "dr" "secondary" "primary"; do
         for h in "vault01" "vault02" "vault03" "unsealer" "pki" "consul01" "consul02" "consul03"; do
@@ -252,7 +270,11 @@ EOL
     done
 ;;
 "wipe")
-    echo rm $VAULT_DATA/*
+    echo "WIPE data ON: ${VAULT_CLUSTER}?"
+    read
+    rm $VAULT_DATA/init.json
+    rm $VAULT_DATA/perf-secondary-token.json
+    rm $VAULT_DATA/enable-perf-secondary-resp.json
 ;;
 "vars")
         echo "Exporting variables for ${VAULT_CLUSTER} Vault"
@@ -276,13 +298,16 @@ EOL
 ;;
 "generate_root_recovery")
         echo "Creating a root token for secondary with the new unseal keys"
-        export VAULT_DATA_PRIMARY="ops/${STORAGE}/primary"        
+        export VAULT_DATA_PRIMARY="ops/data/primary"        
         yapi ${YAPI_PATH}/11-replication_generate_root_recovery.yaml
 ;;
-
-
 #Default
     *)
+        # if [ "${VAULT_CLUSTER}" == "secondary" ]; then
+        #     if [ -f "ops/data/secondary/enable-perf-secondary-resp.json" ]; then
+        #         export VAULT_TOKEN=$(cat ops/data/primary/init.json | jq -r '.root_token')
+        #     fi
+        # fi
         set +x
         export VAULT_ADDR=${VAULT_BASE_ADDR}$1
         case "$2" in

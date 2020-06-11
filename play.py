@@ -254,7 +254,7 @@ def create_cluster(cluster_name="primary"):
         "-u",
         "root",
         "--flush-cache",
-        "-v",
+        # "-v",
         # "-l vault",
         "ansible/vault/playbook.yml",
     ]

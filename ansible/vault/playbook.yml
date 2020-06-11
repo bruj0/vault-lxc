@@ -5,6 +5,8 @@
   become_method: sudo
   gather_facts: True
   vars:
+    CONSUL: false
+    RAFT: true
     CLUSTER_IP: "{{ cluster_ip }}"
     HOSTNAME: "{{ hostname }}"
     JOIN_RETRY: "{{ join_retry }}"
