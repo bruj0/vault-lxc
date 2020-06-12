@@ -39,6 +39,7 @@ def create_proxy():
 
     c_name = "proxy"
     if not client.containers.exists(c_name):
+        create_base("primary", "lxdbr0")
         container = copy_c(f"base-primary", c_name)
         container.config.update(
             {
