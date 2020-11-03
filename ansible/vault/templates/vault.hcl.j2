@@ -6,6 +6,7 @@
 
 
 listener "tcp" {
+  //address = "127.0.0.1:8200"  
   address = "{{ HOSTNAME }}.lxd:8200"
   tls_cert_file = "/etc/vault.d/{{ HOSTNAME }}.pem"
   tls_key_file = "/etc/vault.d/{{ HOSTNAME }}.key"
@@ -36,4 +37,4 @@ api_addr = "https://{{ HOSTNAME }}.lxd:8200"
 cluster_name = "{{ CLUSTER }}"
 
 raw_storage_endpoint = true
-log_level = "debug"
+log_level = "trace"

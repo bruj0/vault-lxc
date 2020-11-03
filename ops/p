@@ -71,6 +71,7 @@ case "$1" in
         echo "    ${bold}revoke_dr${normal}"
 
         echo "General:"
+        echo "  ${bold}all${normal}: run a Vault command on all nodes"
         echo "  ${bold}wipe${normal}"
         echo "  ${bold}vars${normal}: show Vault env vars"
         echo "  ${bold}vars_unsealer${normal}: show Vault env vars for the unsealer"
@@ -145,6 +146,7 @@ EOL
     done
 ;;
 "copy_ca")
+    set +e
     infra_data="infra/data/${VAULT_CLUSTER}/ssl"
     for i in "dr" "secondary"; do
         echo "Copying CA cert to $i"
@@ -242,21 +244,6 @@ EOL
     vault write -f sys/replication/dr/primary/revoke-secondary id=dr-secondary
 ;;
 ## General
-"switch_consul")
-    set +e
-    for i in "vault01" "vault02" "vault03" ; do
-        echo "Switching to consul storage for $i"
-        lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-raft.hcl /etc/vault.d/vault-raft.dis; /etc/vault.d/vault-consul.dis /etc/vault.d/vault-consul.hcl; 
-    done
-;;
-"switch_raft")
-    set +e
-    for i in "vault01" "vault02" "vault03" ; do
-        echo "Switching to consul storage for $i"
-        lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-raft.dis /etc/vault.d/vault-raft.hcl 
-        lxc exec ${VAULT_CLUSTER}-${i} -- mv /etc/vault.d/vault-consul.hcl /etc/vault.d/vault-consul.dis
-    done
-;;
 "join_raft")
     set +e
     VAULT_ADDR="${VAULT_BASE_ADDR}2" vault operator raft join https://${VAULT_CLUSTER}-vault01.lxd:8200
@@ -301,6 +288,16 @@ EOL
         export VAULT_DATA_PRIMARY="ops/data/primary"        
         yapi ${YAPI_PATH}/11-replication_generate_root_recovery.yaml
 ;;
+"all")
+    set +e
+    echo "Running: ${@:2}"
+    echo "Vault01"
+    VAULT_ADDR=${VAULT_BASE_ADDR}1 vault ${@:2}
+    echo "Vault02"
+    VAULT_ADDR=${VAULT_BASE_ADDR}2 vault ${@:2}
+    echo "Vault03"
+    VAULT_ADDR=${VAULT_BASE_ADDR}3 vault ${@:2}
+;;
 #Default
     *)
         # if [ "${VAULT_CLUSTER}" == "secondary" ]; then
@@ -308,7 +305,7 @@ EOL
         #         export VAULT_TOKEN=$(cat ops/data/primary/init.json | jq -r '.root_token')
         #     fi
         # fi
-        set +x
+        #set +x
         export VAULT_ADDR=${VAULT_BASE_ADDR}$1
         case "$2" in
             "raft_config")

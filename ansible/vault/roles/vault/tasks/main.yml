@@ -1,5 +1,5 @@
 - name: Creating vault user group
-  group: 
+  group:
     name: "{{ vault_group }}"
   become: true
 
@@ -27,7 +27,7 @@
 
 - name: "Unzip vault archive"
   unarchive:
-    src: "{{ BIN_DIR }}/vault/{{ vault_version }}/vault-enterprise_{{ vault_version }}+prem_linux_amd64.zip"
+    src: "{{ BIN_DIR }}/vault-prem/{{ vault_version }}/vault-enterprise_{{ vault_version }}+prem_linux_amd64.zip"
     dest: /usr/local/bin
     owner: "{{ vault_user }}"
     group: "{{ vault_group }}"
@@ -59,7 +59,7 @@
     path: /var/vault_data
     owner: vault
     group: vault
-    mode: '0770'
+    mode: "0770"
 
 - name: config file
   template:

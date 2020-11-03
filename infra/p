@@ -97,8 +97,9 @@ case "$1" in
             lxc exec ${VAULT_CLUSTER}-$2 -- journalctl -o cat --no-pager -b -f -u $3 | grep -v checkpoint
     ;;
     "restart_services")
+            echo "Restarting pki and unsealer for ${VAULT_CLUSTER}"
             lxc exec ${VAULT_CLUSTER}-pki -- systemctl restart vault
-            lxc exec ${VAULT_CLUSTER}-unsealer -- systemctl restart unsealer
+            lxc exec ${VAULT_CLUSTER}-unsealer -- systemctl restart vault
     ;;
     "restart_vault")
             set +e
