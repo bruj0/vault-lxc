@@ -1,7 +1,8 @@
 #!/bin/bash -x
 . ./setup.vars
-mkdir /sys/fs/cgroup/systemd
-mount -n -t cgroup -o none,name=systemd systemd /sys/fs/cgroup/systemd
+#mkdir /sys/fs/cgroup/systemd
+#cgroup on /sys/fs/cgroup/systemd type cgroup (rw,nosuid,nodev,noexec,relatime,xattr,name=systemd)
+#mount -n -t cgroup -o none,name=systemd systemd /sys/fs/cgroup/systemd
 lxc network set lxdbr0 ipv6.address none
 lxc network set lxdbr1 ipv6.address none
 lxc network set lxdbr2 ipv6.address none 
